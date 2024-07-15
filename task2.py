@@ -3,17 +3,16 @@ from concurrent.futures import ThreadPoolExecutor
 from collections import defaultdict
 import requests
 from heapq import nlargest
-import matplotlib.pyplot as plt
 from wordcloud import WordCloud
+import matplotlib.pyplot as plt
 
 
 def get_text(url):
     try:
         response = requests.get(url)
-        response.raise_for_status()  # Перевірка статусу відповіді
+        response.raise_for_status()  
         return response.text
     except requests.RequestException as e:
-        print(f"Error fetching the URL: {e}")
         return None
 
 
@@ -22,7 +21,7 @@ def remove_punctuation(text):
 
 
 def map_function(word):
-    return word.lower(), 1
+    return word.lower(), 1 
 
 
 def shuffle_function(mapped_values):
@@ -37,7 +36,9 @@ def reduce_function(key_values):
     return key, sum(values)
 
 
+# Виконання MapReduce
 def map_reduce(text):
+
     # Видалення знаків пунктуації
     text = remove_punctuation(text)
     words = text.split()
@@ -45,17 +46,17 @@ def map_reduce(text):
     # Фільтрація слів довжиною менше 5-ти букв
     words = [word for word in words if len(word) >= 5]
 
-    # Крок 1: Mapping
+    # Паралельний Мапінг
     with ThreadPoolExecutor() as executor:
         mapped_values = list(executor.map(map_function, words))
 
     # Крок 2: Shuffle
     shuffled_values = shuffle_function(mapped_values)
 
-    # Крок 3: Reduction
+    # Паралельна Редукція
     with ThreadPoolExecutor() as executor:
-        reduced_values = dict(executor.map(reduce_function, shuffled_values))
-    return reduced_values
+        reduced_values = list(executor.map(reduce_function, shuffled_values))
+    return dict(reduced_values)
 
 
 def visualize_top_words(word_frequencies):
@@ -67,14 +68,18 @@ def visualize_top_words(word_frequencies):
 
 
 if __name__ == '__main__':
+
     url = "https://gutenberg.net.au/ebooks01/0100011h.html"
     text = get_text(url)
 
     if text:
+
         result = map_reduce(text)
         top_50_words = nlargest(50, result.items(), key=lambda item: item[1])
 
         print("Топ 50 слів за частотою в тексті:", top_50_words)
-        visualize_top_words(dict(top_50_words))
+        visualize_top_words(result)
+
     else:
+
         print("Помилка: Не вдалося отримати вхідний текст.")
